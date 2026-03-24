@@ -10,6 +10,7 @@ type Repository interface {
 	CreateComment(ctx context.Context, c model.Comment) (*model.Comment, error)
 	DeleteComment(ctx context.Context, id int64) error
 	CommentTree(ctx context.Context, rootID int64) ([]*model.Comment, error)
+	SearchComments(ctx context.Context, query string) ([]*model.Comment, error)
 }
 
 type Service struct {
@@ -60,4 +61,12 @@ func (s *Service) CommentTree(ctx context.Context, rootID int64) (*model.Comment
 	}
 
 	return root, nil
+}
+
+func (s *Service) SearchComments(ctx context.Context, query string) ([]*model.Comment, error) {
+	if query == "" {
+		return []*model.Comment{}, nil
+	}
+
+	return s.repo.SearchComments(ctx, query)
 }

@@ -109,3 +109,30 @@ func (r *Repository) CommentTree(ctx context.Context, rootID int64) ([]*model.Co
 
 	return comments, nil
 }
+
+func (r *Repository) SearchComments(ctx context.Context, query string) ([]*model.Comment, error) {
+	sql := `
+	select id, parent_id, content, created
+	from comments
+	where to_tsvector('russian', content) @@ plainto_tsquery('russian', $1)
+	order by ts_rank(to_tsvector('russian', content), plainto_tsquery('russian', $1)) desc;
+`
+	rows, err := r.pool.Query(ctx, sql, query)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer rows.Close()
+
+	commentRows, err := pgx.CollectRows[commentRow](rows, pgx.RowToStructByNameLax[commentRow])
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	comments := make([]*model.Comment, 0, len(commentRows))
+	for _, row := range commentRows {
+		m := r.toModel(row)
+		comments = append(comments, &m)
+	}
+
+	return comments, nil
+}
