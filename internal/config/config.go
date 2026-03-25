@@ -8,12 +8,19 @@ import (
 )
 
 type Config struct {
-	Addr        string `mapstructure:"ADDR"`
-	DatabaseURL string `mapstructure:"DB_URL"`
+	Addr         string `mapstructure:"ADDR"`
+	DatabaseURL  string `mapstructure:"DB_URL"`
+	DefaultLimit uint64 `mapstructure:"DEFAULT_LIMIT"`
+	MaxLimit     uint64 `mapstructure:"MAX_LIMIT"`
 }
 
 func Load() (Config, error) {
 	v := viper.New()
+
+	v.SetDefault("DEFAULT_LIMIT", 10)
+	v.SetDefault("MAX_LIMIT", 100)
+	v.SetDefault("ADDR", ":8080")
+
 	v.AddConfigPath(".")
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")

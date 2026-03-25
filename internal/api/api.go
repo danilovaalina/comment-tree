@@ -15,6 +15,7 @@ type Service interface {
 	CreateComment(ctx context.Context, c model.Comment) (*model.Comment, error)
 	DeleteComment(ctx context.Context, id int64) error
 	CommentTree(ctx context.Context, rootID int64) (*model.Comment, error)
+	CommentsTree(ctx context.Context, filter model.CommentFilter) ([]*model.Comment, error)
 	SearchComments(ctx context.Context, query string) ([]*model.Comment, error)
 }
 
@@ -31,10 +32,13 @@ func New(service Service) *API {
 	a.Validator = NewCustomValidator()
 	a.HideBanner = true
 
-	a.POST("/comments", a.createComment)
-	a.GET("/comments/:id", a.commentTree)
-	a.DELETE("/comments/:id", a.deleteComment)
-	a.GET("/comments/search", a.searchComments)
+	g := a.Group("/comments")
+
+	g.POST("", a.createComment)
+	g.GET("", a.commentsTree)
+	g.GET("/search", a.searchComments)
+	g.GET("/:id", a.commentTree)
+	g.DELETE("/:id", a.deleteComment)
 
 	return a
 }
@@ -130,10 +134,43 @@ func (a *API) searchComments(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to search comments"})
 	}
 
-	// Маппим список результатов
 	response := make([]*commentResponse, 0, len(results))
 	for _, res := range results {
 		response = append(response, a.commentToResponse(res))
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+type commentsParams struct {
+	Page  uint64 `query:"page" validate:"omitempty,gt=0"`
+	Limit uint64 `query:"limit" validate:"omitempty,gt=0"`
+}
+
+func (a *API) commentsTree(c echo.Context) error {
+	var params commentsParams
+
+	if err := c.Bind(&params); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid params"})
+	}
+
+	if err := c.Validate(&params); err != nil {
+		return c.JSON(http.StatusBadRequest, a.validationError(err))
+	}
+
+	filter := model.CommentFilter{
+		Page:  params.Page,
+		Limit: params.Limit,
+	}
+
+	trees, err := a.service.CommentsTree(c.Request().Context(), filter)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to fetch comments"})
+	}
+
+	response := make([]*commentResponse, 0, len(trees))
+	for _, t := range trees {
+		response = append(response, a.commentToResponse(t))
 	}
 
 	return c.JSON(http.StatusOK, response)

@@ -30,7 +30,10 @@ func main() {
 	}
 	defer pool.Close()
 
-	a := api.New(service.New(repository.New(pool)))
+	a := api.New(service.New(repository.New(pool), service.Options{
+		DefaultLimit: cf.DefaultLimit,
+		MaxLimit:     cf.MaxLimit,
+	}))
 	err = a.Start(cf.Addr)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()

@@ -11,14 +11,21 @@ type Repository interface {
 	DeleteComment(ctx context.Context, id int64) error
 	CommentTree(ctx context.Context, rootID int64) ([]*model.Comment, error)
 	SearchComments(ctx context.Context, query string) ([]*model.Comment, error)
+	CommentsTree(ctx context.Context, filter model.CommentFilter) ([]*model.Comment, error)
 }
 
 type Service struct {
 	repo Repository
+	opts Options
 }
 
-func New(repo Repository) *Service {
-	return &Service{repo: repo}
+type Options struct {
+	DefaultLimit uint64
+	MaxLimit     uint64
+}
+
+func New(repo Repository, opts Options) *Service {
+	return &Service{repo: repo, opts: opts}
 }
 
 func (s *Service) CreateComment(ctx context.Context, c model.Comment) (*model.Comment, error) {
@@ -30,6 +37,7 @@ func (s *Service) DeleteComment(ctx context.Context, id int64) error {
 }
 
 func (s *Service) CommentTree(ctx context.Context, rootID int64) (*model.Comment, error) {
+	// Получаем плоский список (корень + его потомки)
 	tree, err := s.repo.CommentTree(ctx, rootID)
 	if err != nil {
 		return nil, err
@@ -61,6 +69,52 @@ func (s *Service) CommentTree(ctx context.Context, rootID int64) (*model.Comment
 	}
 
 	return root, nil
+}
+
+func (s *Service) CommentsTree(ctx context.Context, filter model.CommentFilter) ([]*model.Comment, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = s.opts.DefaultLimit
+	}
+
+	if filter.Limit > s.opts.MaxLimit {
+		filter.Limit = s.opts.MaxLimit
+	}
+
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+
+	filter.Offset = (filter.Page - 1) * filter.Limit
+
+	// Получаем плоский список (корни + их потомки)
+	tree, err := s.repo.CommentsTree(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	nodes := make(map[int64]*model.Comment)
+	for _, c := range tree {
+		// Инициализируем слайс детей, чтобы в JSON не было null
+		c.Children = []*model.Comment{}
+		nodes[c.ID] = c
+	}
+
+	// 3. Слайс для хранения только корневых комментариев
+	var roots []*model.Comment
+
+	for _, c := range nodes {
+		if c.ParentID == nil {
+			// Если родителя нет, это корень дерева, добавляем в итоговый список
+			roots = append(roots, c)
+		} else {
+			// Если родитель есть, ищем его в мапе и добавляем текущий коммент ему в "дети"
+			if parent, ok := nodes[*c.ParentID]; ok {
+				parent.Children = append(parent.Children, c)
+			}
+		}
+	}
+
+	return roots, nil
 }
 
 func (s *Service) SearchComments(ctx context.Context, query string) ([]*model.Comment, error) {

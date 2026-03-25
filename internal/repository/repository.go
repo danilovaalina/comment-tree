@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"comment-tree/internal/model"
 
 	"github.com/cockroachdb/errors"
@@ -12,11 +14,15 @@ import (
 )
 
 type Repository struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	builder sq.StatementBuilderType
 }
 
 func New(pool *pgxpool.Pool) *Repository {
-	return &Repository{pool: pool}
+	return &Repository{
+		pool:    pool,
+		builder: sq.StatementBuilder.PlaceholderFormat(sq.Dollar),
+	}
 }
 
 type commentRow struct {
@@ -88,6 +94,46 @@ func (r *Repository) CommentTree(ctx context.Context, rootID int64) ([]*model.Co
 	`
 
 	rows, err := r.pool.Query(ctx, query, rootID)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer rows.Close()
+
+	commentRows, err := pgx.CollectRows[commentRow](rows, pgx.RowToStructByNameLax[commentRow])
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	comments := make([]*model.Comment, 0, len(commentRows))
+	for _, row := range commentRows {
+		m := r.toModel(row)
+		comments = append(comments, &m)
+	}
+
+	return comments, nil
+}
+
+func (r *Repository) CommentsTree(ctx context.Context, filter model.CommentFilter) ([]*model.Comment, error) {
+	query := `
+	with recursive 
+	root_ids as (
+		select id, parent_id, content, created
+		from comments
+		where parent_id is null
+		order by created desc
+		limit $1 offset $2
+	),
+	comment_tree as (
+		select id, parent_id, content, created
+		from root_ids
+		union all
+		select c.id, c.parent_id, c.content, c.created
+		from comments c
+		join comment_tree ct on c.parent_id = ct.id
+	)
+	select id, parent_id, content, created from comment_tree order by created asc;
+`
+	rows, err := r.pool.Query(ctx, query, filter.Limit, filter.Offset)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

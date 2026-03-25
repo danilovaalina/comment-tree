@@ -14,6 +14,12 @@ type Comment struct {
 	Children []*Comment // Для формирования дерева в памяти (если нужно)
 }
 
+type CommentFilter struct {
+	Page   uint64
+	Limit  uint64
+	Offset uint64
+}
+
 var (
 	ErrNotFound = errors.New("comment not found")
 )
