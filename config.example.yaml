@@ -1,0 +1,7 @@
+addr: "0.0.0.0:8080"
+
+db_url: "postgres://user:pass@localhost:5432/dbname?sslmode=disable"
+
+default_limit: 1
+
+max_limit: 100

@@ -32,6 +32,8 @@ func New(service Service) *API {
 	a.Validator = NewCustomValidator()
 	a.HideBanner = true
 
+	a.Static("/", "web")
+
 	g := a.Group("/comments")
 
 	g.POST("", a.createComment)

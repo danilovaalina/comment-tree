@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Comment Tree</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <h1>Древовидные комментарии</h1>
+
+    <div class="search-section">
+        <input type="text" id="search-input" placeholder="Поиск по комментариям...">
+        <button onclick="searchComments()" class="btn-search">Найти</button>
+        <button onclick="loadComments()" class="btn-reset" id="reset-search" style="display:none">Сбросить</button>
+    </div>
+
+    <!-- Форма для нового корневого комментария -->
+    <div class="main-form">
+        <textarea id="main-content" placeholder="Напишите комментарий..."></textarea>
+        <button onclick="sendMainComment()">Отправить</button>
+    </div>
+
+    <hr>
+    <!-- Сюда будем рендерить дерево -->
+    <div id="comments-container"></div>
+
+    <div class="pagination-section">
+        <button id="load-more-btn" onclick="loadMore()">Показать еще</button>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
