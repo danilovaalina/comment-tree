@@ -2,24 +2,25 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Addr         string `mapstructure:"ADDR"`
-	DatabaseURL  string `mapstructure:"DB_URL"`
-	DefaultLimit uint64 `mapstructure:"DEFAULT_LIMIT"`
-	MaxLimit     uint64 `mapstructure:"MAX_LIMIT"`
+	Addr         string `mapstructure:"addr"`
+	DatabaseURL  string `mapstructure:"db_url"`
+	DefaultLimit uint64 `mapstructure:"default_limit"`
+	MaxLimit     uint64 `mapstructure:"max_limit"`
 }
 
 func Load() (Config, error) {
 	v := viper.New()
 
-	v.SetDefault("DEFAULT_LIMIT", 10)
-	v.SetDefault("MAX_LIMIT", 100)
-	v.SetDefault("ADDR", ":8080")
+	v.SetDefault("default_limit", 10)
+	v.SetDefault("max_limit", 100)
+	v.SetDefault("addr", ":8080")
 
 	v.AddConfigPath(".")
 	v.SetConfigName("config")
@@ -43,8 +44,7 @@ func Load() (Config, error) {
 
 	v.AutomaticEnv()
 
-	//_ = v.BindEnv("addr", "ADDR")
-	//_ = v.BindEnv("db_url", "DB_URL")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	var cfg Config
 	if err = v.Unmarshal(&cfg); err != nil {
